@@ -11,7 +11,7 @@ import java.util.Optional
 interface ChatRoomMemberRepository : CrudRepository<ChatRoomMember, String> {
     fun findByChatRoomIdAndIsActiveTrue(chatRoomId: Long): List<ChatRoomMember>
 
-    fun findBychatRoomIdAndUserIdAndIsActiveTrue(chatRoomId: Long, userId: Long): Optional<ChatRoomMember>
+    fun findByChatRoomIdAndUserIdAndIsActiveTrue(chatRoomId: Long, userId: Long): Optional<ChatRoomMember>
 
     @Query("select count(crm) from ChatRoomMember crm where crm.chatRoom.id = :chatRoomId and crm.isActive = true")
     fun countActiveMembersInRoom(chatRoomId: Long): Long
