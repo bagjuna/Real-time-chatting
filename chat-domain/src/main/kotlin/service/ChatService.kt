@@ -1,8 +1,6 @@
 package com.chat.domain.service
 
 import com.chat.domain.dto.*
-import com.chat.domain.model.ChatRoomType
-import com.chat.domain.model.MemberRole
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 

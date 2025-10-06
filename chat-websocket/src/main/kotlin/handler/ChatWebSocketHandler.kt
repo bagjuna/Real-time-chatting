@@ -92,12 +92,13 @@ class ChatWebSocketHandler(
             sessionManager.removeSession(userId, session)
             logger.info("Session removed for $userId from ${session.id}")
         }
-        TODO("Not yet implemented")
     }
 
-    override fun supportsPartialMessages(): Boolean {
-        TODO("Not yet implemented")
-    }
+//    override fun supportsPartialMessages(): Boolean {
+//    }
+
+    override fun supportsPartialMessages(): Boolean = false
+
 
     private fun getUserIdFromSession(session: WebSocketSession): Long? {
         return session.attributes["userId"] as? Long

@@ -1,4 +1,4 @@
-package redis
+package com.chat.persistence.redis
 
 import com.chat.domain.dto.ChatMessage
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -10,10 +10,10 @@ import org.springframework.data.redis.connection.MessageListener
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.data.redis.listener.ChannelTopic
 import org.springframework.data.redis.listener.RedisMessageListenerContainer
-import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Service
 import java.time.LocalDateTime
 import java.util.concurrent.ConcurrentHashMap
+
 
 @Service
 class RedisMessageBroker(
@@ -23,7 +23,7 @@ class RedisMessageBroker(
 ) : MessageListener {
     private val logger = LoggerFactory.getLogger(RedisMessageBroker::class.java)
     private val serverId = System.getenv("HOSTNAME") ?: "server-${System.currentTimeMillis()}"
-    private val processMessages = ConcurrentHashMap<String, Long>()
+    private val processedMessages = ConcurrentHashMap<String, Long>()
     private val subscribeRooms = ConcurrentHashMap.newKeySet<Long>()
     private var localMessageHandler: ((Long, ChatMessage) -> Unit)? = null
 
@@ -33,13 +33,12 @@ class RedisMessageBroker(
     fun initialize() {
         logger.info("Initializing RedisMessageListenerContainer")
 
-
-        Thread{
-            try{
-                Thread.sleep(30000) // 30초 대기
-                cleanUpProcessMessages()
-            }catch (e: Exception){
-                logger.error("Error initializing RedisMessageListenerContainer", e)
+        Thread {
+            try {
+                Thread.sleep(30000) // 30초
+                cleanUpProcessedMessages()
+            } catch (e : Exception) {
+                logger.error("Error in initializing RedisMessageListenerContainer", e)
             }
         }.apply {
             isDaemon = true
@@ -49,45 +48,44 @@ class RedisMessageBroker(
     }
 
     @PreDestroy
-    fun cleanup(){
+    fun cleanup() {
         subscribeRooms.forEach { roomId ->
-            // TODO 구독 취소
+            unsubscribeFromRoom(roomId)
         }
         logger.info("Removing RedisMessageListenerContainer")
-
     }
 
     fun setLocalMessageHandler(handler: (Long, ChatMessage) -> Unit) {
         this.localMessageHandler = handler
     }
 
-    fun subscribeToRoom(roomId: Long){
-        if(subscribeRooms.add(roomId)) {
+    fun subscribeToRoom(roomId : Long) {
+        if (subscribeRooms.add(roomId)) {
             val topic = ChannelTopic("chat.room.$roomId")
             messageListenerContainer.addMessageListener(this, topic)
-        }else{
-            logger.error("Room $roomId is does not exist")
+            logger.info("Subscribed to $roomId")
+        } else {
+            logger.error("Room $roomId does not exist")
         }
     }
 
-    fun unsubscribeFromRoom(roomId: Long) {
-        if(subscribeRooms.remove(roomId)) {
+    fun unsubscribeFromRoom(roomId : Long) {
+        if (subscribeRooms.remove(roomId)) {
             val topic = ChannelTopic("chat.room.$roomId")
             messageListenerContainer.removeMessageListener(this, topic)
-            logger.info("Unsubscribed from room $roomId")
-        }else{
-            logger.error("Room $roomId is does not exist")
+            logger.info("Unsubscribed from $roomId")
+        } else {
+            logger.error("Room $roomId does not exist")
         }
     }
 
-    fun broadcastToRoom(roomId: Long,message: ChatMessage, excludeServerId: String? = null) {
-
+    fun broadcastToRoom(roomId : Long, message : ChatMessage, excludeSeverId: String? = null) {
         try {
             val message = DistributedMessage(
                 id = "$serverId-${System.currentTimeMillis()}-${System.nanoTime()}",
                 serverId = serverId,
                 roomId = roomId,
-                excludeServerId = excludeServerId,
+                excludeSeverId = excludeSeverId,
                 timestamp = LocalDateTime.now(),
                 payload = message
             )
@@ -95,8 +93,8 @@ class RedisMessageBroker(
             val json = objectMapper.writeValueAsString(message)
             redisTemplate.convertAndSend("chat.room.$roomId", json)
 
-            logger.info("Broadcasted to $roomId to $json")
-        } catch (e: Exception) {
+            logger.info("Broadcast to $roomId to $json")
+        } catch(e : Exception) {
             logger.error("Error broadcast to $roomId", e)
         }
     }
@@ -106,58 +104,53 @@ class RedisMessageBroker(
             val json = String(message.body)
             val distributedMessage = objectMapper.readValue(json, DistributedMessage::class.java)
 
-            if (distributedMessage.excludeServerId == serverId) {
-                logger.error("excludeServerId to $serverId")
+            if (distributedMessage.excludeSeverId == serverId) {
+                logger.error("excludeSeverId to $serverId")
                 return
             }
 
-            if (processMessages.containsKey(distributedMessage.id)) {
-                logger.error("processMessages $distributedMessage")
+            if (processedMessages.containsKey(distributedMessage.id)) {
+                logger.error("processedMessages $distributedMessage")
                 return
             }
 
             localMessageHandler?.invoke(distributedMessage.roomId, distributedMessage.payload)
 
-            processMessages[distributedMessage.id] = System.currentTimeMillis()
+            processedMessages[distributedMessage.id] = System.currentTimeMillis()
 
-            if (processMessages.size > 10000) {
-                val oldestEntries = processMessages.entries.sortedBy { it.value }
-                    .take( processMessages.size - 10000 )
+            if (processedMessages.size > 10000) {
+                val oldestEntries = processedMessages.entries.sortedBy { it.value }
+                    .take(processedMessages.size - 10000)
 
-                oldestEntries.forEach { processMessages.remove(it.key) }
-
+                oldestEntries.forEach { processedMessages.remove(it.key) }
             }
 
-            logger.info("processedMessages ${distributedMessage.id}")
+            logger.info("processedMessages $distributedMessage.id")
 
-        }catch (e: Exception){
-            logger.error("Error in on message ", e)
+        }  catch (e: Exception) {
+            logger.error("Error in on message", e)
         }
-        TODO("Not yet implemented")
     }
 
-    private fun cleanUpProcessMessages() {
+    private fun cleanUpProcessedMessages() {
         val now = System.currentTimeMillis()
-        val expiredKeys = processMessages.filter {(_,time ) ->
+        val expiredKeys = processedMessages.filter { (_, time) ->
             now - time > 60000 // 1분
         }.keys
 
-        expiredKeys.forEach { processMessages.remove(it) }
+        expiredKeys.forEach { processedMessages.remove(it) }
 
-        if(expiredKeys.isNotEmpty()) {
-            logger.info("Removed ${processMessages.size} messages from Redis")
+        if (expiredKeys.isNotEmpty()) {
+            logger.info("Removed ${processedMessages.size} messages from Redis")
         }
-
     }
 
     data class DistributedMessage(
-        val id: String,
-        val serverId: String,
-        val roomId: Long,
-        val excludeServerId: String?,
+        val id : String,
+        val serverId : String,
+        val roomId : Long,
+        val excludeSeverId : String?,
         val timestamp: LocalDateTime,
-        val payload: ChatMessage
+        val payload : ChatMessage
     )
-
-
 }

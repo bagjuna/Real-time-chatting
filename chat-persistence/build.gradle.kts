@@ -22,7 +22,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("org.springframework.boot:spring-boot-starter-cache")
 
-    // WebSocket (WebSocketSessionManager 에서 사용)
+    // WebSocket (WebSocketSessionManager에서 사용)
     implementation("org.springframework.boot:spring-boot-starter-websocket")
 
     // Jackson (Redis 직렬화 및 WebSocket 메시지 처리용)

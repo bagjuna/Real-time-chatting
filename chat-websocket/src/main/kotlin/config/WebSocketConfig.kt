@@ -1,6 +1,5 @@
 package com.chat.websocket.config
 
-import com.chat.domain.service.ChatService
 import com.chat.websocket.handler.ChatWebSocketHandler
 import com.chat.websocket.interceptor.WebSocketHandshakeInterceptor
 import org.springframework.context.annotation.Configuration

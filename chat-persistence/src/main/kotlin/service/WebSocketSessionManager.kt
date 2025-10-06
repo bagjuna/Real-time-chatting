@@ -1,6 +1,7 @@
 package com.chat.persistence.service
 
 import com.chat.domain.dto.ChatMessage
+import com.chat.persistence.redis.RedisMessageBroker
 import com.chat.persistence.repository.ChatRoomMemberRepository
 import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.annotation.PostConstruct
@@ -9,7 +10,6 @@ import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.stereotype.Service
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
-import redis.RedisMessageBroker
 import java.util.concurrent.ConcurrentHashMap
 
 
@@ -24,7 +24,6 @@ class WebSocketSessionManager(
 
     private val userSession = ConcurrentHashMap<Long, MutableSet<WebSocketSession>>()
 
-    private val roomMemberKeyPrefix = "chat:room:members"
     private val serverRoomsKeyPrefix = "chat:server:rooms"
 
     @PostConstruct
@@ -135,7 +134,6 @@ class WebSocketSessionManager(
 
         return openSession.isNotEmpty()
     }
+
+
 }
-
-
-

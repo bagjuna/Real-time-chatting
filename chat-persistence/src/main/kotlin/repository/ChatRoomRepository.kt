@@ -1,6 +1,5 @@
 package com.chat.persistence.repository
 
-
 import com.chat.domain.model.ChatRoom
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
